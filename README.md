@@ -35,9 +35,27 @@ This tool mimics a physical USB-C cable checker board. Users select which pins a
    ```
 
 4. Run the application:
-   ```
-   python usb_cable_tool.py
-   ```
+
+   - **Directly with Python:**
+     ```
+     python usb_cable_tool.py
+     ```
+
+   - **On Linux/macOS:**
+     ```
+     chmod +x run.sh  # Run this only once to make the script executable
+     ./run.sh
+     ```
+
+   - **On Windows (Batch):**
+     ```
+     run.bat
+     ```
+
+   - **On Windows (PowerShell):**
+     ```
+     .\run.ps1
+     ```
 
 ## Usage
 
