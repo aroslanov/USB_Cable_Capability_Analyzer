@@ -62,8 +62,11 @@ class USBCableChecker(tk.Tk):
         controls = ttk.Frame(main)
         controls.grid(row=1, column=0, columnspan=2, pady=(10, 0), sticky="ew")
 
-        ttk.Button(controls, text="Select All", command=lambda: self._set_all(True)).pack(side="left")
-        ttk.Button(controls, text="Unselect All", command=lambda: self._set_all(False)).pack(side="left", padx=(8, 0))
+        button_frame = ttk.Frame(controls)
+        button_frame.pack(expand=True, anchor="center")
+
+        ttk.Button(button_frame, text="Select All", command=lambda: self._set_all(True)).pack(side="left")
+        ttk.Button(button_frame, text="Unselect All", command=lambda: self._set_all(False)).pack(side="left", padx=(8, 0))
 
         report_frame = ttk.LabelFrame(main, text="Live Analysis")
         report_frame.grid(row=2, column=0, columnspan=2, sticky="nsew", padx=10, pady=(15, 0))
