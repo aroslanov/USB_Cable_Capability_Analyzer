@@ -24,6 +24,50 @@ SS_PINS = {
     "TX2+", "TX2-", "RX2+", "RX2-",
 }
 
+PIN_TOOLTIPS = {
+    "GND": "Ground pin for power and signal return",
+    "TX2+": "Transmit positive for USB 3.x SuperSpeed lane 2",
+    "TX2-": "Transmit negative for USB 3.x SuperSpeed lane 2",
+    "VBUS": "Power supply pin (5V, 9V, 15V, 20V)",
+    "CC2": "Configuration Channel 2 for cable detection and power negotiation",
+    "D+": "USB 2.0 data positive",
+    "D-": "USB 2.0 data negative",
+    "SBU2": "Sideband Use 2 for alternate modes (e.g., DisplayPort)",
+    "RX1-": "Receive negative for USB 3.x SuperSpeed lane 1",
+    "RX1+": "Receive positive for USB 3.x SuperSpeed lane 1",
+    "RX2+": "Receive positive for USB 3.x SuperSpeed lane 2",
+    "RX2-": "Receive negative for USB 3.x SuperSpeed lane 2",
+    "SBU1": "Sideband Use 1 for alternate modes (e.g., DisplayPort)",
+    "CC1": "Configuration Channel 1 for cable detection and power negotiation",
+    "TX1-": "Transmit negative for USB 3.x SuperSpeed lane 1",
+    "TX1+": "Transmit positive for USB 3.x SuperSpeed lane 1",
+}
+
+class Tooltip:
+    def __init__(self, widget, text):
+        self.widget = widget
+        self.text = text
+        self.tooltip = None
+        widget.bind("<Enter>", self.show)
+        widget.bind("<Leave>", self.hide)
+
+    def show(self, event):
+        if self.tooltip:
+            return
+        x, y, _, _ = self.widget.bbox("insert")
+        x += self.widget.winfo_rootx() + 25
+        y += self.widget.winfo_rooty() + 25
+        self.tooltip = tk.Toplevel(self.widget)
+        self.tooltip.wm_overrideredirect(True)
+        self.tooltip.wm_geometry(f"+{x}+{y}")
+        label = tk.Label(self.tooltip, text=self.text, background="yellow", relief="solid", borderwidth=1)
+        label.pack()
+
+    def hide(self, event):
+        if self.tooltip:
+            self.tooltip.destroy()
+            self.tooltip = None
+
 class USBCableChecker(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -50,14 +94,18 @@ class USBCableChecker(tk.Tk):
         for i, pin in enumerate(LEFT_PINS):
             var = tk.BooleanVar()
             var.trace_add("write", lambda *_: self._update_report())
-            ttk.Checkbutton(left, text=f"{i+1:02d}  {pin}", variable=var).pack(anchor="w")
+            checkbutton = ttk.Checkbutton(left, text=f"{i+1:02d}  {pin}", variable=var)
+            checkbutton.pack(anchor="w")
             self.vars[f"{pin}_{i}"] = var
+            Tooltip(checkbutton, PIN_TOOLTIPS[pin])
 
         for i, pin in enumerate(RIGHT_PINS):
             var = tk.BooleanVar()
             var.trace_add("write", lambda *_: self._update_report())
-            ttk.Checkbutton(right, text=f"{i+1:02d}  {pin}", variable=var).pack(anchor="w")
+            checkbutton = ttk.Checkbutton(right, text=f"{i+1:02d}  {pin}", variable=var)
+            checkbutton.pack(anchor="w")
             self.vars[f"{pin}_{i+20}"] = var
+            Tooltip(checkbutton, PIN_TOOLTIPS[pin])
 
         controls = ttk.Frame(main)
         controls.grid(row=1, column=0, columnspan=2, pady=(10, 0), sticky="ew")

@@ -1,0 +1,3 @@
+# USB Cable Capability Analyzer Requirements
+# No external pip dependencies required
+# Requires Python 3.6+ with Tkinter (included in standard Python)
