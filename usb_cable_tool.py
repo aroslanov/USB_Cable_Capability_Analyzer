@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk
 
 """
 USB Cable Checker GUI — Extended Analysis Edition
@@ -28,8 +28,9 @@ class USBCableChecker(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("USB Cable Capability Analyzer")
-        self.geometry("780x540")
+        self.geometry("350x540")
         self.vars = {}
+        self.report_var = tk.StringVar(value="Select pins to see analysis…")
         self._build_ui()
 
     def _build_ui(self):
@@ -42,26 +43,44 @@ class USBCableChecker(tk.Tk):
         left.grid(row=0, column=0, padx=10, sticky="n")
         right.grid(row=0, column=1, padx=10, sticky="n")
 
+        main.grid_columnconfigure(0, weight=1)
+        main.grid_columnconfigure(1, weight=1)
+
         for i, pin in enumerate(LEFT_PINS):
             var = tk.BooleanVar()
+            var.trace_add("write", lambda *_: self._update_report())
             ttk.Checkbutton(left, text=f"{i+1:02d}  {pin}", variable=var).pack(anchor="w")
             self.vars[f"{pin}_{i}"] = var
 
         for i, pin in enumerate(RIGHT_PINS):
             var = tk.BooleanVar()
+            var.trace_add("write", lambda *_: self._update_report())
             ttk.Checkbutton(right, text=f"{i+1:02d}  {pin}", variable=var).pack(anchor="w")
             self.vars[f"{pin}_{i+20}"] = var
 
-        ttk.Button(main, text="Analyze Cable", command=self.analyze).grid(
-            row=1, column=0, columnspan=2, pady=15
-        )
+        report_frame = ttk.LabelFrame(main, text="Live Analysis")
+        report_frame.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=10, pady=(15, 0))
+        main.grid_rowconfigure(1, weight=1)
 
-    def analyze(self):
+        report_label = ttk.Label(
+            report_frame,
+            textvariable=self.report_var,
+            justify="left",
+            anchor="nw",
+            wraplength=740,
+        )
+        report_label.pack(fill="both", expand=True, padx=10, pady=10)
+
+        self._update_report()
+
+    def _active_pins(self):
         active_pins = set()
         for key, var in self.vars.items():
             if var.get():
                 active_pins.add(key.split("_")[0])
+        return active_pins
 
+    def _build_report_text(self, active_pins: set[str]) -> str:
         report = []
         label = ""
 
@@ -118,7 +137,11 @@ class USBCableChecker(tk.Tk):
         report.insert(0, f"AUTO CLASSIFICATION: {label}")
         report.insert(1, "" + "-" * 40)
 
-        messagebox.showinfo("Cable Analysis Report", "\n".join(report))
+        return "\n".join(report)
+
+    def _update_report(self):
+        active_pins = self._active_pins()
+        self.report_var.set(self._build_report_text(active_pins))
 
 
 if __name__ == "__main__":
