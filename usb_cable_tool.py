@@ -30,7 +30,8 @@ class USBCableChecker(tk.Tk):
         self.title("USB Cable Capability Analyzer")
         self.geometry("350x540")
         self.vars = {}
-        self.report_var = tk.StringVar(value="Select pins to see analysis…")
+        self._suppress_update = False
+        self.report_text: tk.Text | None = None
         self._build_ui()
 
     def _build_ui(self):
@@ -58,20 +59,45 @@ class USBCableChecker(tk.Tk):
             ttk.Checkbutton(right, text=f"{i+1:02d}  {pin}", variable=var).pack(anchor="w")
             self.vars[f"{pin}_{i+20}"] = var
 
-        report_frame = ttk.LabelFrame(main, text="Live Analysis")
-        report_frame.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=10, pady=(15, 0))
-        main.grid_rowconfigure(1, weight=1)
+        controls = ttk.Frame(main)
+        controls.grid(row=1, column=0, columnspan=2, pady=(10, 0), sticky="ew")
 
-        report_label = ttk.Label(
+        ttk.Button(controls, text="Select All", command=lambda: self._set_all(True)).pack(side="left")
+        ttk.Button(controls, text="Unselect All", command=lambda: self._set_all(False)).pack(side="left", padx=(8, 0))
+
+        report_frame = ttk.LabelFrame(main, text="Live Analysis")
+        report_frame.grid(row=2, column=0, columnspan=2, sticky="nsew", padx=10, pady=(15, 0))
+        main.grid_rowconfigure(2, weight=1)
+
+        self.report_text = tk.Text(
             report_frame,
-            textvariable=self.report_var,
-            justify="left",
-            anchor="nw",
-            wraplength=740,
+            wrap="word",
+            height=12,
+            borderwidth=0,
+            highlightthickness=0,
         )
-        report_label.pack(fill="both", expand=True, padx=10, pady=10)
+        self.report_text.pack(fill="both", expand=True, padx=10, pady=10)
 
         self._update_report()
+
+    def _set_all(self, value: bool):
+        self._suppress_update = True
+        try:
+            for var in self.vars.values():
+                var.set(value)
+        finally:
+            self._suppress_update = False
+
+        self._update_report()
+
+    def _set_report_text(self, text: str):
+        if self.report_text is None:
+            return
+
+        self.report_text.configure(state="normal")
+        self.report_text.delete("1.0", "end")
+        self.report_text.insert("1.0", text)
+        self.report_text.configure(state="disabled")
 
     def _active_pins(self):
         active_pins = set()
@@ -140,8 +166,11 @@ class USBCableChecker(tk.Tk):
         return "\n".join(report)
 
     def _update_report(self):
+        if self._suppress_update:
+            return
+
         active_pins = self._active_pins()
-        self.report_var.set(self._build_report_text(active_pins))
+        self._set_report_text(self._build_report_text(active_pins))
 
 
 if __name__ == "__main__":
