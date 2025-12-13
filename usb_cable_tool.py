@@ -67,6 +67,7 @@ class USBCableChecker(tk.Tk):
 
         ttk.Button(button_frame, text="Select All", command=lambda: self._set_all(True)).pack(side="left")
         ttk.Button(button_frame, text="Unselect All", command=lambda: self._set_all(False)).pack(side="left", padx=(8, 0))
+        ttk.Button(button_frame, text="Copy to Clipboard", command=self._copy_to_clipboard).pack(side="left", padx=(8, 0))
 
         report_frame = ttk.LabelFrame(main, text="Live Analysis")
         report_frame.grid(row=2, column=0, columnspan=2, sticky="nsew", padx=10, pady=(15, 0))
@@ -102,6 +103,12 @@ class USBCableChecker(tk.Tk):
         self.report_text.insert("1.0", text)
         self.report_text.configure(state="disabled")
 
+    def _copy_to_clipboard(self):
+        if self.report_text:
+            text = self.report_text.get("1.0", "end-1c")
+            self.clipboard_clear()
+            self.clipboard_append(text)
+
     def _active_pins(self):
         active_pins = set()
         for key, var in self.vars.items():
@@ -124,11 +131,11 @@ class USBCableChecker(tk.Tk):
 
         report.append(f"SuperSpeed lanes detected: {ss_count}/8")
         if full_ss:
-            report.append("✔ Full USB 3.x wiring present")
+            report.append("Full USB 3.x wiring present")
         elif partial_ss:
-            report.append("⚠ Partial SuperSpeed wiring (likely passive or damaged cable)")
+            report.append("Partial SuperSpeed wiring (likely passive or damaged cable)")
         else:
-            report.append("✖ No SuperSpeed wiring")
+            report.append("No SuperSpeed wiring")
 
         # --- CC lines ---
         cc_present = bool({"CC1", "CC2"} & active_pins)
