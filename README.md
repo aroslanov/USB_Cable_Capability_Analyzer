@@ -55,7 +55,11 @@ This tool mimics a physical USB-C cable checker board. Users select which pins a
 
 ## Screenshots
 
-*(Add screenshots here if available)*
+### Analyzer Board
+![Analyzer Board](assets/board.png)
+
+### Program Screenshot
+![Program Screenshot](assets/screenshot.png)
 
 ## Contributing
 
