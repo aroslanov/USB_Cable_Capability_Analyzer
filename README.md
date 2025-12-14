@@ -1,10 +1,12 @@
 # USB Cable Capability Analyzer
 
+![Occkic MRB063A USB Cable Tester](assets/board.png)
+
 A GUI tool to analyze USB-C cable wiring and capabilities based on pin connections.
 
 ## Description
 
-This tool mimics a physical USB-C cable checker board. Users select which pins are active (LEDs ON), and the software infers the cable's wiring, capabilities, and auto-classifies it.
+This tool mimics the Occkic MRB063A USB Cable Tester board. Users select which pins are active (LEDs ON), and the software infers the cable's wiring, capabilities, and auto-classifies it.
 
 **Note:** This is a diagnostic tool, not a USB-IF compliance certifier.
 
@@ -60,7 +62,7 @@ This tool mimics a physical USB-C cable checker board. Users select which pins a
 ## Usage
 
 - Launch the GUI.
-- Check the boxes corresponding to the pins that are active (LEDs ON) on your USB-C cable checker board.
+- Check the boxes corresponding to the pins that are active (LEDs ON) on your Occkic MRB063A USB Cable Tester board.
 - The analysis updates in real-time below the checkboxes.
 - Use "Select All" to check all pins, "Unselect All" to clear them.
 - Click "Copy to Clipboard" to copy the full report.
@@ -73,11 +75,8 @@ This tool mimics a physical USB-C cable checker board. Users select which pins a
 
 ## Screenshots
 
-### Analyzer Board
-![Analyzer Board](assets/board.png)
-
 ### Program Screenshot
-![Program Screenshot](assets/screenshot.png)
+![Program Screenshot](assets/screenshot.png "USB Cable Capability Analyzer GUI")
 
 ## Contributing
 
