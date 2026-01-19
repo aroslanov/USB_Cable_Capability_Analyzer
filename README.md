@@ -12,13 +12,17 @@ This tool mimics the Occkic MRB063A USB Cable Tester board. Users select which p
 
 ## Features
 
-- Real-time analysis as you interact with checkboxes.
-- Supports USB 2.0, SuperSpeed (USB 3.x), CC lines, SBU lines, power.
-- Auto-classification of cable type (e.g., charge-only, USB 2.0 data, full-featured USB-C).
-- Select All / Unselect All buttons for quick pin selection.
-- Copy report to clipboard button.
-- Tooltips on checkboxes explaining each pin's function.
-- Word-wrapped, selectable, and copyable analysis output.
+- **Real-time Analysis**: Live diagnostic updates as you interact with checkboxes.
+- **Comprehensive Cable Support**: Analyzes USB 2.0, SuperSpeed (USB 3.x), CC lines, SBU lines, and power delivery.
+- **Broken Pair Detection**: Explicitly identifies incomplete differential pairs (e.g., TX1+ without TX1-) and reports them as potential cable damage.
+- **Lane-Level Reporting**: Independent status for each SuperSpeed lane (Lane 1 & Lane 2) with specific pin counts.
+- **Detailed Diagnostics**:
+  - Complete lane status (OK / INCOMPLETE / MISSING)
+  - Broken differential pair identification
+  - Orientation-dependent operation warnings
+- **Auto-Classification**: Smart cable type identification with specific labels (charge-only, USB 2.0, USB 3.x, Alt-Mode capable, non-compliant).
+- **Convenient Controls**: Select All / Unselect All buttons and Copy to Clipboard functionality.
+- **User-Friendly UI**: Tooltips on all pin checkboxes explaining each pin's function.
 
 ## Installation
 
@@ -68,10 +72,48 @@ This tool mimics the Occkic MRB063A USB Cable Tester board. Users select which p
 - Click "Copy to Clipboard" to copy the full report.
 - Hover over checkboxes for tooltips explaining each pin.
 
+## Analysis Details
+
+### Broken Pair Detection
+The tool detects incomplete differential pairs (both TX and RX pairs) for each SuperSpeed lane. If a differential pair is broken (one wire present, the other missing), it will report "BROKEN PAIRS DETECTED" with specific identification of which pairs are broken.
+
+**Example**: If TX1+ is present but TX1- is missing, the tool reports "Lane 1 TX pair broken" and classifies the cable as non-compliant.
+
+### Lane-Level Reporting
+Each SuperSpeed lane is analyzed independently:
+- **OK**: All 4 pins present (TX+, TX-, RX+, RX-)
+- **INCOMPLETE**: Partial pins detected with count (e.g., 3/4 pins)
+- **MISSING**: No pins from that lane detected
+
+### Auto-Classification
+The tool automatically classifies cables into categories:
+- Charge-only USB-C cable
+- USB 2.0 data cable
+- USB-C 3.x cable (with or without Alt-Mode support)
+- Non-standard / damaged SuperSpeed cable
+- Non-compliant cable (when broken pairs detected)
+
+Orientation warnings are provided for single-lane operation (flip-dependent).
+
 ## Requirements
 
 - Python 3.6 or higher
 - Tkinter (included with Python)
+
+## Programmatic API
+
+The analysis logic is encapsulated in a standalone function for easy integration:
+
+```python
+from usb_cable_tool import analyze_cable
+
+# Analyze a set of active pins
+pins = {"VBUS", "GND", "CC1", "D+", "D-", "TX1+", "TX1-", "RX1+", "RX1-"}
+report = analyze_cable(pins)
+print(report)
+```
+
+This function returns a detailed diagnostic string suitable for logging, reporting, or further processing.
 
 ## Screenshots
 
