@@ -9,3 +9,4 @@ logs/
 *.log
 dist/
 build/
+tests/
