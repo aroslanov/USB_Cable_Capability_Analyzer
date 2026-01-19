@@ -48,7 +48,7 @@ PIN_TOOLTIPS = {
 }
 
 
-def analyze_cable(active_pins: set[str]) -> str:
+def analyze_cable(active_pins: set[str], pin_counts: dict[str, int] | None = None) -> str:
     """
     Standalone cable analysis function.
     
@@ -61,6 +61,7 @@ def analyze_cable(active_pins: set[str]) -> str:
     
     Args:
         active_pins: Set of pin names that are active/connected
+        pin_counts: Optional pin occurrence counts for multi-pin signals
         
     Returns:
         A formatted string with the detailed analysis report
@@ -70,7 +71,10 @@ def analyze_cable(active_pins: set[str]) -> str:
     # --- Feature Detection ---
     usb2 = {"D+", "D-"}.issubset(active_pins)
     usb2_partial = len({"D+", "D-"} & active_pins) == 1
-    power = {"VBUS", "GND"}.issubset(active_pins)
+
+    pin_counts = pin_counts or {}
+    vbus_count = pin_counts.get("VBUS", 0)
+    gnd_count = pin_counts.get("GND", 0)
     
     # SuperSpeed Lane Analysis
     lane1_pins = LANE_1 & active_pins
@@ -83,8 +87,24 @@ def analyze_cable(active_pins: set[str]) -> str:
     partial_ss = 0 < ss_count < 8
     
     # CC and SBU detection
-    cc_present = bool({"CC1", "CC2"} & active_pins)
+    cc_count = len({"CC1", "CC2"} & active_pins)
+    cc_present = cc_count > 0
     sbu_count = len({"SBU1", "SBU2"} & active_pins)
+
+    # Cable profile heuristics (legacy vs USB-C)
+    full_usb_c_candidate = cc_count == 2 or sbu_count == 2 or ss_count == 8
+    usb_c_candidate = cc_count > 0 or sbu_count > 0 or ss_count == 8
+    legacy_usb2_candidate = usb2 and ss_count == 0 and sbu_count == 0 and cc_count == 0
+    legacy_usb3_candidate = usb2 and ss_count == 4 and sbu_count == 0 and cc_count == 0
+
+    # Power expectations vary by cable profile
+    if full_usb_c_candidate:
+        power_full = vbus_count >= 2 and gnd_count >= 4
+    else:
+        power_full = vbus_count >= 1 and gnd_count >= 1
+
+    power_partial = (vbus_count > 0 or gnd_count > 0) and not power_full
+    power = power_full
     
     # Detect broken pairs
     broken_pairs = []
@@ -102,11 +122,19 @@ def analyze_cable(active_pins: set[str]) -> str:
 
     if usb2_partial:
         broken_pairs.append("USB 2.0 D+/D- pair broken")
+
+    if power_partial:
+        broken_pairs.append("Power wiring incomplete (VBUS/GND)")
+
+    if full_usb_c_candidate and cc_count == 1:
+        broken_pairs.append("CC wiring incomplete (USB-C)")
     
     # === USER-FRIENDLY CLASSIFICATION ===
     # Classification is based strictly on AVAILABLE PINS, not assumptions
     orientation_note = ""
     
+    single_lane_ss = (lane1_complete ^ lane2_complete) and ss_count == 4
+
     # Determine cable type based on actual pin presence
     if broken_pairs:
         cable_type = "DAMAGED CABLE - Broken wiring detected"
@@ -123,14 +151,27 @@ def analyze_cable(active_pins: set[str]) -> str:
         cable_note = "Supports high-speed data transfer. Good for modern devices."
         if (lane1_complete and not lane2_complete) or (lane2_complete and not lane1_complete):
             orientation_note = "Works in one orientation only"
+    elif usb2 and single_lane_ss:
+        cable_type = "USB 3.x Data Cable (Single-Lane)"
+        if legacy_usb3_candidate:
+            cable_note = "Single SuperSpeed lane detected (legacy USB 3.0 connectors)."
+        else:
+            cable_note = "Single SuperSpeed lane detected (common in USB-A to USB-C cables)."
+            orientation_note = "Works in one orientation only"
     elif usb2 and not full_ss and not partial_ss:
         # USB 2.0 data only, no SuperSpeed pins
         cable_type = "USB 2.0 Data Cable"
-        cable_note = "Good for basic data transfer, charging, and older devices."
+        if legacy_usb2_candidate:
+            cable_note = "Legacy USB 2.0 wiring detected (USB-A/B/Micro/Mini/Lightning)."
+        else:
+            cable_note = "Good for basic data transfer, charging, and older devices."
     elif power and not usb2 and ss_count == 0:
         # Power and ground only, no data or SuperSpeed
         cable_type = "Charging Cable"
         cable_note = "Supports power delivery only. Not suitable for data transfer."
+    elif power_partial and not usb2 and ss_count == 0:
+        cable_type = "Charging Cable (Incomplete Power Wiring)"
+        cable_note = "Power wiring is incomplete. Charging may be unstable or unsafe."
     elif usb2 and partial_ss:
         # USB 2.0 with incomplete SuperSpeed (damaged pins)
         cable_type = "NON-STANDARD Cable"
@@ -151,9 +192,10 @@ def analyze_cable(active_pins: set[str]) -> str:
     # === TECHNICAL DETAILS ===
     report.append(f"\nCapabilities:")
     report.append(f"  • USB 2.0 data: {'Yes' if usb2 else ('Partial' if usb2_partial else 'No')}")
-    report.append(f"  • Power delivery: {'Yes' if power else 'No'}")
+    report.append(f"  • Power delivery: {'Yes' if power else ('Partial' if power_partial else 'No')}")
     report.append(f"  • SuperSpeed (USB 3.x): {'Yes' if full_ss else ('Partial' if partial_ss else 'No')}")
-    report.append(f"  • Alt-Mode (video/audio): {'Yes' if sbu_count == 2 else ('Partial' if sbu_count == 1 else 'No')}")
+    report.append(f"  • Alt-Mode wiring (SBU): {'Yes' if sbu_count == 2 else ('Partial' if sbu_count == 1 else 'No')} (not a guarantee of Alt-Mode)"
+    )
     
     report.append(f"\nSuperSpeed Lanes ({ss_count}/8 pins detected):")
     if lane1_complete:
@@ -177,7 +219,7 @@ def analyze_cable(active_pins: set[str]) -> str:
             report.append(f"  • {bp}")
     
     report.append(f"\nConfiguration:")
-    report.append(f"  • CC (Config Channel): {'Yes' if cc_present else 'No'}")
+    report.append(f"  • CC (Config Channel): {'Yes' if cc_count == 2 else ('Partial' if cc_count == 1 else 'No')}")
     report.append(f"  • SBU (Sideband): {sbu_count}/2 lines")
     
     return "\n".join(report)
@@ -307,6 +349,7 @@ class USBCableChecker(tk.Tk):
 
     def _active_pins(self):
         active_pins = set()
+        pin_counts: dict[str, int] = {}
         
         # TRANSFORMATION LAYER:
         # Maps the Board's specific silk-screen labels (Right Side) 
@@ -334,30 +377,33 @@ class USBCableChecker(tk.Tk):
                     # Translate board label to logical signal name
                     logical_name = right_side_translation.get(pin_label, pin_label)
                     active_pins.add(logical_name)
+                    pin_counts[logical_name] = pin_counts.get(logical_name, 0) + 1
                 else:
                     # Left Side pins (0-11) match standard layout; no change needed
                     active_pins.add(pin_label)
+                    pin_counts[pin_label] = pin_counts.get(pin_label, 0) + 1
                     
-        return active_pins
+        return active_pins, pin_counts
 
-    def _build_report_text(self, active_pins: set[str]) -> str:
+    def _build_report_text(self, active_pins: set[str], pin_counts: dict[str, int]) -> str:
         """
         Builds the report text by delegating to the standalone analyze_cable function.
         
         Args:
             active_pins: Set of pin names that are active/connected
+            pin_counts: Pin occurrence counts for multi-pin signals
             
         Returns:
             Formatted analysis report
         """
-        return analyze_cable(active_pins)
+        return analyze_cable(active_pins, pin_counts)
 
     def _update_report(self):
         if self._suppress_update:
             return
 
-        active_pins = self._active_pins()
-        self._set_report_text(self._build_report_text(active_pins))
+        active_pins, pin_counts = self._active_pins()
+        self._set_report_text(self._build_report_text(active_pins, pin_counts))
 
 
 if __name__ == "__main__":
