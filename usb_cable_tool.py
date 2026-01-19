@@ -308,7 +308,7 @@ class USBCableChecker(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("USB Cable Capability Analyzer")
-        self.geometry("500x700")
+        self.geometry("450x700")
         self.vars = {}
         self.left_connector_var = tk.StringVar(value="Type C 3.0")
         self.right_connector_var = tk.StringVar(value="Type C 3.0")
@@ -391,14 +391,20 @@ class USBCableChecker(tk.Tk):
         report_frame.grid(row=2, column=0, columnspan=4, sticky="nsew", padx=10, pady=(15, 0))
         main.grid_rowconfigure(2, weight=1)
 
+        # Create scrollbar for report text
+        scrollbar = ttk.Scrollbar(report_frame)
+        scrollbar.pack(side="right", fill="y")
+
         self.report_text = tk.Text(
             report_frame,
             wrap="word",
             height=12,
             borderwidth=0,
             highlightthickness=0,
+            yscrollcommand=scrollbar.set,
         )
-        self.report_text.pack(fill="both", expand=True, padx=10, pady=10)
+        self.report_text.pack(side="left", fill="both", expand=True, padx=10, pady=10)
+        scrollbar.config(command=self.report_text.yview)
 
         self._update_report()
 
