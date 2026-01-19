@@ -100,24 +100,8 @@ Orientation warnings are provided for single-lane operation (flip-dependent).
 - Python 3.6 or higher
 - Tkinter (included with Python)
 
-## Programmatic API
+## Screenshot
 
-The analysis logic is encapsulated in a standalone function for easy integration:
-
-```python
-from usb_cable_tool import analyze_cable
-
-# Analyze a set of active pins
-pins = {"VBUS", "GND", "CC1", "D+", "D-", "TX1+", "TX1-", "RX1+", "RX1-"}
-report = analyze_cable(pins)
-print(report)
-```
-
-This function returns a detailed diagnostic string suitable for logging, reporting, or further processing.
-
-## Screenshots
-
-### Program Screenshot
 ![Program Screenshot](assets/screenshot.png "USB Cable Capability Analyzer GUI")
 
 ## Contributing
