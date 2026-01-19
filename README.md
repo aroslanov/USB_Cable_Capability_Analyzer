@@ -24,8 +24,8 @@ This tool mimics the Occkic MRB063A USB Cable Tester board. Users select which p
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/USB_Tool.git
-   cd USB_Tool
+   git clone https://github.com/aroslanov/USB_Cable_Capability_Analyzer
+   cd USB_Cable_Capability_Analyzer
    ```
 
 2. Ensure Python 3.6+ is installed (Tkinter is included in standard Python installations).
