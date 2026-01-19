@@ -173,7 +173,7 @@ def analyze_cable(active_pins: set[str]) -> str:
             report.append(f"  • {bp}")
     
     report.append(f"\nConfiguration:")
-    report.append(f"  • CC (Config Channel): {'✓ Yes' if cc_present else '✗ No'}")
+    report.append(f"  • CC (Config Channel): {'Yes' if cc_present else 'No'}")
     report.append(f"  • SBU (Sideband): {sbu_count}/2 lines")
     
     return "\n".join(report)
@@ -293,11 +293,47 @@ class USBCableChecker(tk.Tk):
             self.clipboard_clear()
             self.clipboard_append(text)
 
+    # def _active_pins(self): #old implementation
+    #     active_pins = set()
+    #     for key, var in self.vars.items():
+    #         if var.get():
+    #             active_pins.add(key.split("_")[0])
+    #     return active_pins
+
+
     def _active_pins(self):
         active_pins = set()
+        
+        # TRANSFORMATION LAYER:
+        # Maps the Board's specific silk-screen labels (Right Side) 
+        # to the Standard USB Logical Signals required by analyze_cable().
+        # This fixes the logic error without changing the GUI layout.
+        right_side_translation = {
+            "RX2+": "TX1+",  # Pin 2: Board labeled RX2+, physically TX1+
+            "RX2-": "TX1-",  # Pin 3: Board labeled RX2-, physically TX1-
+            "SBU1": "CC1",   # Pin 5: Board labeled SBU1, physically CC1 location
+            "D-":   "D+",    # Pin 6: Board labeled D-, physically D+ location
+            "D+":   "D-",    # Pin 7: Board labeled D+, physically D- location
+            "CC1":  "SBU1",  # Pin 8: Board labeled CC1, physically SBU1 location
+            "TX1-": "RX2-",  # Pin 10: Board labeled TX1-, physically RX2-
+            "TX1+": "RX2+"   # Pin 11: Board labeled TX1+, physically RX2+
+        }
+
         for key, var in self.vars.items():
             if var.get():
-                active_pins.add(key.split("_")[0])
+                parts = key.split("_")
+                pin_label = parts[0]
+                pin_index = int(parts[1])
+
+                # Check if this pin is on the Right Side (Indices 20-31)
+                if pin_index >= 20:
+                    # Translate board label to logical signal name
+                    logical_name = right_side_translation.get(pin_label, pin_label)
+                    active_pins.add(logical_name)
+                else:
+                    # Left Side pins (0-11) match standard layout; no change needed
+                    active_pins.add(pin_label)
+                    
         return active_pins
 
     def _build_report_text(self, active_pins: set[str]) -> str:
