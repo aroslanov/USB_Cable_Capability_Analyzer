@@ -122,6 +122,11 @@ def analyze_cable(
 
     expected_ss_pins = 8 if full_usb_c_candidate else (4 if usb3_any else 0)
     mismatch_ss = (expected_ss_pins == 0 and ss_count > 0) or (expected_ss_pins > 0 and ss_count > expected_ss_pins)
+    # Legacy USB 3.0 connectors (non-USB-C) should only use Lane 1 (TX1/RX1)
+    if usb3_any and not usb_c_any:
+        lane2_present = len(LANE_2 & active_pins) > 0
+        if lane2_present:
+            mismatch_ss = True
 
     # Power expectations vary by connector selection
     if full_usb_c_candidate:
