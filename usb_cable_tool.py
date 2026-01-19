@@ -53,10 +53,11 @@ def analyze_cable(active_pins: set[str]) -> str:
     Standalone cable analysis function.
     
     Analyzes active pins and generates a detailed diagnostic report including:
-    - Basic capability detection (USB 2.0, SuperSpeed, Power, etc.)
+    - User-friendly cable classification
+    - Capability detection (USB 2.0, SuperSpeed, Power, etc.)
     - Lane-level status reporting
     - Broken pair detection
-    - Auto-classification with specific orientation warnings
+    - Technical details for advanced users
     
     Args:
         active_pins: Set of pin names that are active/connected
@@ -66,18 +67,25 @@ def analyze_cable(active_pins: set[str]) -> str:
     """
     report = []
     
-    # --- USB 2.0 ---
+    # --- Feature Detection ---
     usb2 = {"D+", "D-"}.issubset(active_pins)
-    report.append(f"USB 2.0 Data: {'YES' if usb2 else 'NO'}")
+    power = {"VBUS", "GND"}.issubset(active_pins)
     
-    # --- SuperSpeed Lane Analysis ---
+    # SuperSpeed Lane Analysis
     lane1_pins = LANE_1 & active_pins
     lane2_pins = LANE_2 & active_pins
     
     lane1_complete = len(lane1_pins) == 4
     lane2_complete = len(lane2_pins) == 4
+    ss_count = len(SS_PINS & active_pins)
+    full_ss = ss_count == 8
+    partial_ss = 0 < ss_count < 8
     
-    # Detect broken pairs in lanes
+    # CC and SBU detection
+    cc_present = bool({"CC1", "CC2"} & active_pins)
+    sbu_count = len({"SBU1", "SBU2"} & active_pins)
+    
+    # Detect broken pairs
     broken_pairs = []
     for lane_name, lane_pins in [("Lane 1", LANE_1), ("Lane 2", LANE_2)]:
         tx_pins = {p for p in lane_pins if p.startswith("TX")}
@@ -86,97 +94,87 @@ def analyze_cable(active_pins: set[str]) -> str:
         tx_active = tx_pins & active_pins
         rx_active = rx_pins & active_pins
         
-        # Check for incomplete pairs (one wire present, the other missing)
-        if len(tx_active) == 1:  # One of TX+ or TX-
+        if len(tx_active) == 1:
             broken_pairs.append(f"{lane_name} TX pair broken")
-        elif len(tx_active) == 2:  # Both TX+ and TX- present (complete)
-            pass
-        
-        if len(rx_active) == 1:  # One of RX+ or RX-
+        if len(rx_active) == 1:
             broken_pairs.append(f"{lane_name} RX pair broken")
-        elif len(rx_active) == 2:  # Both RX+ and RX- present (complete)
-            pass
     
-    # Report lane status
-    report.append(f"\nSuperSpeed Lanes:")
-    if lane1_complete:
-        report.append("  Lane 1 (TX1/RX1): OK")
-    elif len(lane1_pins) > 0:
-        report.append(f"  Lane 1 (TX1/RX1): INCOMPLETE ({len(lane1_pins)}/4 pins)")
+    # === USER-FRIENDLY CLASSIFICATION ===
+    # Classification is based strictly on AVAILABLE PINS, not assumptions
+    orientation_note = ""
+    
+    # Determine cable type based on actual pin presence
+    if broken_pairs:
+        cable_type = "⚠ DAMAGED CABLE - Broken wiring detected"
+        cable_note = "This cable has broken or missing connections. Do not use for data transfer."
+    elif full_ss and sbu_count == 2 and usb2 and cc_present:
+        # All features present: full SuperSpeed + Alt-Mode + USB 2.0 + Config channel
+        cable_type = "Premium USB-C Cable (Full Featured)"
+        cable_note = "Supports high-speed data, Alt-Mode (video/display output), and advanced features."
+        if (lane1_complete and not lane2_complete) or (lane2_complete and not lane1_complete):
+            orientation_note = "Works in one orientation only"
+    elif full_ss and usb2 and cc_present:
+        # Full SuperSpeed with USB 2.0 (regardless of Alt-Mode)
+        cable_type = "USB 3.x Fast Data Cable"
+        cable_note = "Supports high-speed data transfer. Good for modern devices."
+        if (lane1_complete and not lane2_complete) or (lane2_complete and not lane1_complete):
+            orientation_note = "Works in one orientation only"
+    elif usb2 and not full_ss and not partial_ss:
+        # USB 2.0 data only, no SuperSpeed pins
+        cable_type = "USB 2.0 Data Cable"
+        cable_note = "Good for basic data transfer, charging, and older devices."
+    elif power and not usb2 and ss_count == 0:
+        # Power and ground only, no data or SuperSpeed
+        cable_type = "Charging Cable"
+        cable_note = "Supports power delivery only. Not suitable for data transfer."
+    elif usb2 and partial_ss:
+        # USB 2.0 with incomplete SuperSpeed (damaged pins)
+        cable_type = "⚠ NON-STANDARD Cable"
+        cable_note = "Has incomplete or damaged SuperSpeed connections. May work but not recommended."
+        if (lane1_complete and not lane2_complete) or (lane2_complete and not lane1_complete):
+            orientation_note = "Works in one orientation only"
     else:
-        report.append("  Lane 1 (TX1/RX1): MISSING")
+        cable_type = "Unknown Cable"
+        cable_note = "Unable to determine cable type. May be defective."
+    
+    # Build the report with user-friendly format
+    report.append(f"{cable_type}")
+    report.append(f"{cable_note}")
+    
+    if orientation_note:
+        report.append(f"⚠ Note: {orientation_note}")
+    
+    # === TECHNICAL DETAILS ===
+    report.append(f"\nCapabilities:")
+    report.append(f"  • USB 2.0 data: {'Yes' if usb2 else 'No'}")
+    report.append(f"  • Power delivery: {'Yes' if power else 'No'}")
+    report.append(f"  • SuperSpeed (USB 3.x): {'Yes' if full_ss else ('Partial' if partial_ss else 'No')}")
+    report.append(f"  • Alt-Mode (video/audio): {'Yes' if sbu_count == 2 else ('Partial' if sbu_count == 1 else 'No')}")
+    
+    report.append(f"\nSuperSpeed Lanes ({ss_count}/8 pins detected):")
+    if lane1_complete:
+        report.append("  • Lane 1 (TX1/RX1): OK")
+    elif len(lane1_pins) > 0:
+        report.append(f"  • Lane 1 (TX1/RX1): INCOMPLETE ({len(lane1_pins)}/4 pins)")
+    else:
+        report.append("  • Lane 1 (TX1/RX1): MISSING")
     
     if lane2_complete:
-        report.append("  Lane 2 (TX2/RX2): OK")
+        report.append("  • Lane 2 (TX2/RX2): OK")
     elif len(lane2_pins) > 0:
-        report.append(f"  Lane 2 (TX2/RX2): INCOMPLETE ({len(lane2_pins)}/4 pins)")
+        report.append(f"  • Lane 2 (TX2/RX2): INCOMPLETE ({len(lane2_pins)}/4 pins)")
     else:
-        report.append("  Lane 2 (TX2/RX2): MISSING")
+        report.append("  • Lane 2 (TX2/RX2): MISSING")
     
     # Report broken pairs
     if broken_pairs:
-        report.append(f"\n⚠ BROKEN PAIRS DETECTED:")
+        report.append(f"\nBroken Differential Pairs:")
         for bp in broken_pairs:
             report.append(f"  • {bp}")
     
-    ss_count = len(SS_PINS & active_pins)
-    full_ss = ss_count == 8
-    partial_ss = 0 < ss_count < 8
-    
-    report.append(f"\nSuperSpeed lines detected: {ss_count}/8")
-    if full_ss:
-        report.append("Full USB 3.x wiring present")
-    elif partial_ss:
-        report.append("Partial SuperSpeed wiring (likely passive or damaged cable)")
-    else:
-        report.append("No SuperSpeed wiring")
-    
-    # --- CC lines ---
-    cc_present = bool({"CC1", "CC2"} & active_pins)
-    report.append(f"\nCC lines present: {'YES' if cc_present else 'NO'}")
-    
-    # --- SBU lines ---
-    sbu_count = len({"SBU1", "SBU2"} & active_pins)
-    report.append(f"SBU lines detected: {sbu_count}/2")
-    
-    # --- Power ---
-    power = {"VBUS", "GND"}.issubset(active_pins)
-    report.append(f"Power path (VBUS+GND): {'YES' if power else 'NO'}")
-    
-    # === AUTO CLASSIFICATION ===
-    orientation_issue = False
-    orientation_detail = ""
-    
-    if lane1_complete and not lane2_complete:
-        orientation_issue = True
-        orientation_detail = " — Single-Lane Operation (Flip-Dependent)"
-    elif lane2_complete and not lane1_complete:
-        orientation_issue = True
-        orientation_detail = " — Single-Lane Operation (Flip-Dependent)"
-    elif lane1_complete and lane2_complete:
-        # Both lanes present - check if they're properly paired or flip-dependent
-        pass
-    
-    if broken_pairs:
-        label = "Non-compliant cable with broken differential pairs"
-    elif power and not usb2 and ss_count == 0:
-        label = "Charge-only USB-C cable"
-    elif usb2 and not full_ss:
-        label = "USB 2.0 data cable"
-    elif full_ss and sbu_count == 0:
-        label = "USB-C 3.x full-featured cable (no Alt-Mode)"
-    elif full_ss and sbu_count == 2:
-        label = "Full-featured USB-C cable (Alt-Mode capable)"
-    elif partial_ss:
-        label = "Non-standard / damaged SuperSpeed cable"
-    else:
-        label = "Unknown or non-compliant cable"
-    
-    if orientation_detail:
-        label += orientation_detail
-    
-    report.insert(0, f"\nAUTO CLASSIFICATION: {label}")
-    report.insert(1, "=" * 50)
+    report.append(f"\nConfiguration:")
+    report.append(f"  • CC (Config Channel): {'✓ Yes' if cc_present else '✗ No'}")
+    report.append(f"  • SBU (Sideband): {sbu_count}/2 lines")
     
     return "\n".join(report)
 
