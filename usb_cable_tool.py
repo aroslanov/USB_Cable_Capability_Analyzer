@@ -69,6 +69,7 @@ def analyze_cable(active_pins: set[str]) -> str:
     
     # --- Feature Detection ---
     usb2 = {"D+", "D-"}.issubset(active_pins)
+    usb2_partial = len({"D+", "D-"} & active_pins) == 1
     power = {"VBUS", "GND"}.issubset(active_pins)
     
     # SuperSpeed Lane Analysis
@@ -98,6 +99,9 @@ def analyze_cable(active_pins: set[str]) -> str:
             broken_pairs.append(f"{lane_name} TX pair broken")
         if len(rx_active) == 1:
             broken_pairs.append(f"{lane_name} RX pair broken")
+
+    if usb2_partial:
+        broken_pairs.append("USB 2.0 D+/D- pair broken")
     
     # === USER-FRIENDLY CLASSIFICATION ===
     # Classification is based strictly on AVAILABLE PINS, not assumptions
@@ -105,7 +109,7 @@ def analyze_cable(active_pins: set[str]) -> str:
     
     # Determine cable type based on actual pin presence
     if broken_pairs:
-        cable_type = "⚠ DAMAGED CABLE - Broken wiring detected"
+        cable_type = "DAMAGED CABLE - Broken wiring detected"
         cable_note = "This cable has broken or missing connections. Do not use for data transfer."
     elif full_ss and sbu_count == 2 and usb2 and cc_present:
         # All features present: full SuperSpeed + Alt-Mode + USB 2.0 + Config channel
@@ -129,7 +133,7 @@ def analyze_cable(active_pins: set[str]) -> str:
         cable_note = "Supports power delivery only. Not suitable for data transfer."
     elif usb2 and partial_ss:
         # USB 2.0 with incomplete SuperSpeed (damaged pins)
-        cable_type = "⚠ NON-STANDARD Cable"
+        cable_type = "NON-STANDARD Cable"
         cable_note = "Has incomplete or damaged SuperSpeed connections. May work but not recommended."
         if (lane1_complete and not lane2_complete) or (lane2_complete and not lane1_complete):
             orientation_note = "Works in one orientation only"
@@ -142,11 +146,11 @@ def analyze_cable(active_pins: set[str]) -> str:
     report.append(f"{cable_note}")
     
     if orientation_note:
-        report.append(f"⚠ Note: {orientation_note}")
+        report.append(f"Note: {orientation_note}")
     
     # === TECHNICAL DETAILS ===
     report.append(f"\nCapabilities:")
-    report.append(f"  • USB 2.0 data: {'Yes' if usb2 else 'No'}")
+    report.append(f"  • USB 2.0 data: {'Yes' if usb2 else ('Partial' if usb2_partial else 'No')}")
     report.append(f"  • Power delivery: {'Yes' if power else 'No'}")
     report.append(f"  • SuperSpeed (USB 3.x): {'Yes' if full_ss else ('Partial' if partial_ss else 'No')}")
     report.append(f"  • Alt-Mode (video/audio): {'Yes' if sbu_count == 2 else ('Partial' if sbu_count == 1 else 'No')}")
