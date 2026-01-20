@@ -227,9 +227,7 @@ def analyze_cable(
     # Build the report with user-friendly format
     report.append(f"{cable_type}")
     report.append(f"{cable_note}")
-    if left_connector or right_connector:
-        report.append(f"Selected connectors: {left_connector or 'Unknown'} ↔ {right_connector or 'Unknown'}")
-    
+        
     if orientation_note:
         report.append(f"Note: {orientation_note}")
     
@@ -270,7 +268,10 @@ def analyze_cable(
     report.append(f"\nConfiguration:")
     report.append(f"  • CC (Config Channel): {'Yes' if cc_count == 2 else ('Partial' if cc_count == 1 else 'No')}")
     report.append(f"  • SBU (Sideband): {sbu_count}/2 lines")
-    
+        
+    if left_connector or right_connector:
+            report.append(f"\nSelected connectors: {left_connector or 'Unknown'} ↔ {right_connector or 'Unknown'}")
+
     if left_pins_checked or right_pins_checked:
         report.append(f"\nChecked Pins:")
         if left_pins_checked:
