@@ -1,6 +1,6 @@
 # USB Cable Capability Analyzer
 
-![Occkic MRB063A USB Cable Tester](assets/board.png)
+![Treedix C-TRX5-0575 / Occkic MRB063A / Noname USB Cable Tester](assets/board.png)
 
 A GUI tool to analyze USB-C cable wiring and capabilities based on pin connections.
 
@@ -66,7 +66,7 @@ This tool mimics the Occkic MRB063A USB Cable Tester board. Users select which p
 ## Usage
 
 - Launch the GUI.
-- Check the boxes corresponding to the pins that are active (LEDs ON) on your Occkic MRB063A USB Cable Tester board.
+- Check the boxes corresponding to the pins that are active (LEDs ON) on your  USB Cable Tester board.
 - The analysis updates in real-time below the checkboxes.
 - Use "Select All" to check all pins, "Unselect All" to clear them.
 - Click "Copy to Clipboard" to copy the full report.
