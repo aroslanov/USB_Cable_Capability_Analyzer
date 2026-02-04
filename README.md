@@ -6,7 +6,7 @@ A GUI tool to analyze USB-C cable wiring and capabilities based on pin connectio
 
 ## Description
 
-This tool mimics the Occkic MRB063A USB Cable Tester board. Users select which pins are active (LEDs ON), and the software infers the cable's wiring, capabilities, and auto-classifies it.
+This tool mimics the Treedix C-TRX5-0575 / Occkic MRB063A / Noname USB Cable Tester USB Cable Tester board. Users select which pins are active (LEDs ON), and the software infers the cable's wiring, capabilities, and auto-classifies it.
 
 **Note:** This is a diagnostic tool, not a USB-IF compliance certifier.
 
