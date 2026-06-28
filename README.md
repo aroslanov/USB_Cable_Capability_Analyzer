@@ -82,6 +82,25 @@ This tool mimics the Treedix C-TRX5-0575 / Occkic MRB063A / Noname USB Cable Tes
      .\run.ps1
      ```
 
+## Windows Release (Standalone EXE)
+
+A prebuilt Windows 64-bit standalone EXE is available from the project's GitHub Releases. The release includes a single-file, windowed (no-console) executable: `usb_cable_tool.exe`.
+
+- **Releases page:** https://github.com/aroslanov/USB_Cable_Capability_Analyzer/releases
+- **Direct download (v0.1.0):** https://github.com/aroslanov/USB_Cable_Capability_Analyzer/releases/download/v0.1.0/usb_cable_tool.exe
+
+After downloading, run the EXE by double-clicking it or from PowerShell (detached):
+
+```powershell
+Start-Process -FilePath .\usb_cable_tool.exe -ArgumentList '--help'
+```
+
+Notes:
+- The EXE is built for Windows 64-bit and does not require a local Python installation.
+- If you don't see the EXE on the release page, open the release and expand the **Assets** section to download the file.
+- We recommend verifying the SHA256 checksum provided in the release notes before running the binary.
+
+
 ## Usage
 
 - Launch the GUI.
