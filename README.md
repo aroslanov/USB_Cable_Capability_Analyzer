@@ -18,6 +18,7 @@ This tool mimics the Treedix C-TRX5-0575 / Occkic MRB063A / Noname USB Cable Tes
 - **Right-Side Pin Translation**: Automatically maps physical board silk-screen labels (Right Row A) to logical USB signal names for accurate analysis.
 - **Broken Pair Detection**: Explicitly identifies incomplete differential pairs (e.g., TX1+ without TX1-) and reports them as potential cable damage.
 - **Incomplete Power Wiring Detection**: Detects missing VBUS or GND connections and reports them as damage.
+- **Type-C Aware Continuity Rules**: Treats USB-C to USB-C CC continuity differently from USB-C to legacy cables, where CC termination/e-marker behavior is not verified by this continuity board.
 - **Mismatch Detection**: Flags inconsistencies between selected connector types and detected SuperSpeed wiring.
 - **Wiring Warnings**: Distinguishes between critical broken pairs (damage) and non-critical advisories (e.g., missing CC on a charge-only USB-C cable).
 - **Lane-Level Reporting**: Independent status for each SuperSpeed lane (Lane 1 & Lane 2) with specific pin counts.
@@ -95,9 +96,11 @@ This tool mimics the Treedix C-TRX5-0575 / Occkic MRB063A / Noname USB Cable Tes
 
 ### Connector Selection
 The left panel offers **Type A 2.0**, **Type A 3.0**, and **Type C 3.0** connectors. The right panel offers **Type B 3.0**, **Type C 3.0**, **Micro B 3.0**, **Mini B 2.0**, **Lightning**, and **Micro B 2.0**. The expected number of SuperSpeed pins and power wiring adjusts based on your selections:
-- **USB-C both ends**: Expects 8 SuperSpeed pins, 2× VBUS, 4× GND, CC, SBU.
-- **USB 3.0 (non-C)**: Expects 4 SuperSpeed pins (Lane 1 only), 1× VBUS, 1× GND.
+- **USB-C both ends**: Expects 8 SuperSpeed pins, 4× VBUS, 4× GND, CC continuity, and SBU when classifying a full-featured cable.
+- **USB-C to legacy USB**: Expects one complete SuperSpeed TX differential pair and one complete SuperSpeed RX differential pair where applicable. CC terminations, pull-ups/pull-downs, and e-marker behavior are not verified by this continuity test.
+- **USB 3.0 (non-C)**: Expects 4 SuperSpeed pins: one complete TX differential pair and one complete RX differential pair, plus 1× VBUS and 1× GND.
 - **USB 2.0 (non-C)**: Expects no SuperSpeed pins, 1× VBUS, 1× GND.
+- **Lightning**: Treated as proprietary USB 2.0-style continuity only; Lightning itself is not a USB-IF connector standard.
 
 ### Right-Side Pin Translation
 The physical board's Right Row A has a different silk-screen labeling than the logical USB-C standard. The tool automatically translates board labels to logical signals:
@@ -113,17 +116,19 @@ The physical board's Right Row A has a different silk-screen labeling than the l
 No translation is needed for the Left Row B (pins follow standard labeling).
 
 ### Broken Pair Detection
-The tool detects incomplete differential pairs (both TX and RX pairs) for each SuperSpeed lane, as well as broken USB 2.0 D+/D- pairs and incomplete power wiring. If any broken pairs are found, the cable is classified as **DAMAGED CABLE** with specific identification.
+The tool detects incomplete SuperSpeed TX/RX differential pairs, broken USB 2.0 D+/D- pairs, and incomplete power wiring. If any broken pairs are found, the cable is classified as **DAMAGED CABLE** with specific identification.
 
 **Examples**:
-- TX1+ present but TX1- missing → "Lane 1 TX pair broken"
+- TX1+ present but TX1- missing → "TX1 differential pair broken"
 - D+ present but D- missing → "USB 2.0 D+/D- pair broken"
 - VBUS present but GND missing → "Power wiring incomplete (VBUS/GND)"
 
 ### Wiring Warnings
 Non-critical issues are reported as warnings rather than damage:
 - Missing CC wiring on a charge-only USB-C cable (no data, no SuperSpeed)
-- Incomplete CC wiring (only one CC pin detected on a USB-C cable with data)
+- Incomplete CC continuity on a USB-C to USB-C cable
+- USB-C to legacy cables where CC termination/e-marker behavior cannot be verified by continuity alone
+- Lightning is proprietary; the tool only checks exposed USB 2.0-style continuity
 
 ### Lane-Level Reporting
 Each SuperSpeed lane is analyzed independently:
@@ -144,7 +149,7 @@ The tool automatically classifies cables into categories based on detected wirin
 - **Mismatch** — Connector selection doesn't match detected wiring
 - **Unknown Cable** — Cannot determine cable type
 
-Orientation warnings are provided for single-lane operation (flip-dependent).
+Orientation warnings are provided for single-lane USB-C to legacy operation. A USB-C to USB-C cable with only one complete SuperSpeed lane is reported as non-standard rather than as a valid orientation-dependent cable.
 
 ## Running Tests
 
@@ -160,11 +165,13 @@ Tests cover:
 - USB 3.0 legacy single-lane (Type A 3.0 to Type B 3.0)
 - Full-featured USB-C (both ends)
 - Missing CC on USB-C (detected as damaged)
-- USB-C to Type B (single-lane)
+- USB-C to Type B (single-lane, with CC continuity not required)
+- Legacy USB 3.0 mixed TX/RX pair labeling from Type-C rows
+- Lightning as proprietary USB 2.0-style continuity
 - Charge-only legacy cable
 - Broken USB 2.0 pair
 - SuperSpeed mismatch with connector selection
-- Lane 2 on legacy USB 3.0 mismatch
+- Mixed Type-C row SuperSpeed pairs on legacy USB 3.0 connectors
 - Incomplete power wiring
 
 ## Requirements

@@ -27,12 +27,23 @@ SS_PINS = {
 # Define SuperSpeed lanes
 LANE_1 = {"TX1+", "TX1-", "RX1+", "RX1-"}
 LANE_2 = {"TX2+", "TX2-", "RX2+", "RX2-"}
+TX_PAIRS = {
+    "TX1": {"TX1+", "TX1-"},
+    "TX2": {"TX2+", "TX2-"},
+}
+RX_PAIRS = {
+    "RX1": {"RX1+", "RX1-"},
+    "RX2": {"RX2+", "RX2-"},
+}
+USB2_PINS = {"D+", "D-"}
+CC_PINS = {"CC1", "CC2"}
+SBU_PINS = {"SBU1", "SBU2"}
 
 PIN_TOOLTIPS = {
     "GND": "Ground pin for power and signal return",
     "TX2+": "Transmit positive for USB 3.x SuperSpeed lane 2",
     "TX2-": "Transmit negative for USB 3.x SuperSpeed lane 2",
-    "VBUS": "Power supply pin (5V, 9V, 15V, 20V)",
+    "VBUS": "Power supply pin (normally 5V; higher voltages require negotiated charging support)",
     "CC2": "Configuration Channel 2 for cable detection and power negotiation",
     "D+": "USB 2.0 data positive",
     "D-": "USB 2.0 data negative",
@@ -80,8 +91,8 @@ def analyze_cable(
     report = []
     
     # --- Feature Detection ---
-    usb2 = {"D+", "D-"}.issubset(active_pins)
-    usb2_partial = len({"D+", "D-"} & active_pins) == 1
+    usb2 = USB2_PINS.issubset(active_pins)
+    usb2_partial = len(USB2_PINS & active_pins) == 1
 
     pin_counts = pin_counts or {}
     vbus_count = pin_counts.get("VBUS", 0)
@@ -96,11 +107,24 @@ def analyze_cable(
     ss_count = len(SS_PINS & active_pins)
     full_ss = ss_count == 8
     partial_ss = 0 < ss_count < 8
+    complete_tx_pairs = [
+        pair_name for pair_name, pair_pins in TX_PAIRS.items()
+        if pair_pins.issubset(active_pins)
+    ]
+    complete_rx_pairs = [
+        pair_name for pair_name, pair_pins in RX_PAIRS.items()
+        if pair_pins.issubset(active_pins)
+    ]
+    legacy_ss_complete = (
+        len(complete_tx_pairs) == 1
+        and len(complete_rx_pairs) == 1
+        and ss_count == 4
+    )
     
     # CC and SBU detection
-    cc_count = len({"CC1", "CC2"} & active_pins)
+    cc_count = len(CC_PINS & active_pins)
     cc_present = cc_count > 0
-    sbu_count = len({"SBU1", "SBU2"} & active_pins)
+    sbu_count = len(SBU_PINS & active_pins)
 
     # Cable profile based on connector selection
     left_connector = left_connector or ""
@@ -115,6 +139,7 @@ def analyze_cable(
     right_is_usb3 = "3.0" in right_connector
     usb3_any = left_is_usb3 or right_is_usb3
     usb2_only = not usb3_any
+    lightning_selected = "Lightning" in left_connector or "Lightning" in right_connector
 
     legacy_usb2_candidate = usb2 and usb2_only and not usb_c_any
     legacy_usb3_candidate = usb2 and usb3_any and not usb_c_any
@@ -122,17 +147,22 @@ def analyze_cable(
 
     expected_ss_pins = 8 if full_usb_c_candidate else (4 if usb3_any else 0)
     mismatch_ss = (expected_ss_pins == 0 and ss_count > 0) or (expected_ss_pins > 0 and ss_count > expected_ss_pins)
-    # Legacy USB 3.0 connectors (non-USB-C) should only use Lane 1 (TX1/RX1)
-    if usb3_any and not usb_c_any:
-        lane2_present = len(LANE_2 & active_pins) > 0
-        if lane2_present:
-            mismatch_ss = True
 
     # Power expectations vary by connector selection
-    if full_usb_c_candidate:
-        power_full = vbus_count >= 2 and gnd_count >= 4
+    if usb_c_both:
+        expected_vbus_count = 4
+        expected_gnd_count = 4
+    elif usb_c_any:
+        expected_vbus_count = 2
+        expected_gnd_count = 2
     else:
-        power_full = vbus_count >= 1 and gnd_count >= 1
+        expected_vbus_count = 1
+        expected_gnd_count = 1
+
+    if full_usb_c_candidate:
+        power_full = vbus_count >= expected_vbus_count and gnd_count >= expected_gnd_count
+    else:
+        power_full = vbus_count >= expected_vbus_count and gnd_count >= expected_gnd_count
 
     power_partial = (vbus_count > 0 or gnd_count > 0) and not power_full
     power = power_full
@@ -141,17 +171,9 @@ def analyze_cable(
     broken_pairs = []
     wiring_warnings = []
     if expected_ss_pins > 0:
-        for lane_name, lane_pins in [("Lane 1", LANE_1), ("Lane 2", LANE_2)]:
-            tx_pins = {p for p in lane_pins if p.startswith("TX")}
-            rx_pins = {p for p in lane_pins if p.startswith("RX")}
-            
-            tx_active = tx_pins & active_pins
-            rx_active = rx_pins & active_pins
-            
-            if len(tx_active) == 1:
-                broken_pairs.append(f"{lane_name} TX pair broken")
-            if len(rx_active) == 1:
-                broken_pairs.append(f"{lane_name} RX pair broken")
+        for pair_name, pair_pins in {**TX_PAIRS, **RX_PAIRS}.items():
+            if len(pair_pins & active_pins) == 1:
+                broken_pairs.append(f"{pair_name} differential pair broken")
 
     if usb2_partial:
         broken_pairs.append("USB 2.0 D+/D- pair broken")
@@ -159,20 +181,23 @@ def analyze_cable(
     if power_partial:
         broken_pairs.append("Power wiring incomplete (VBUS/GND)")
 
-    if usb_c_any and cc_count == 0:
-        # If this is a charge-only cable (no data, no SuperSpeed), flag as warning instead of damage
+    if usb_c_both and cc_count == 0:
+        # If this is a charge-only cable (no data, no SuperSpeed), flag as warning instead of damage.
         if power and not usb2 and ss_count == 0:
-            wiring_warnings.append("CC wiring missing (USB-C selected)")
+            wiring_warnings.append("CC continuity missing (USB-C to USB-C selected)")
         else:
-            broken_pairs.append("CC wiring missing (USB-C selected)")
+            broken_pairs.append("CC continuity missing (USB-C to USB-C selected)")
     elif full_usb_c_candidate and cc_count == 1:
-        wiring_warnings.append("CC wiring incomplete (USB-C)")
+        wiring_warnings.append("CC continuity incomplete (USB-C to USB-C)")
+    elif usb_c_any and not usb_c_both and cc_count == 0:
+        wiring_warnings.append("Type-C CC termination/e-marker is not verified by this continuity test")
     
     # === USER-FRIENDLY CLASSIFICATION ===
     # Classification is based strictly on AVAILABLE PINS, not assumptions
     orientation_note = ""
     
-    single_lane_ss = (lane1_complete ^ lane2_complete) and ss_count == 4
+    single_lane_ss = legacy_ss_complete
+    ss_ok_for_selection = full_ss if expected_ss_pins == 8 else (legacy_ss_complete if expected_ss_pins == 4 else False)
 
     # Determine cable type based on actual pin presence
     if broken_pairs:
@@ -181,19 +206,19 @@ def analyze_cable(
     elif mismatch_ss:
         cable_type = "Mismatch: Connector selection vs detected wiring"
         cable_note = "Selected connectors do not match detected SuperSpeed wiring."
-    elif full_ss and sbu_count == 2 and usb2 and cc_present:
+    elif full_usb_c_candidate and full_ss and sbu_count == 2 and usb2 and cc_present:
         # All features present: full SuperSpeed + Alt-Mode + USB 2.0 + Config channel
         cable_type = "Premium USB-C Cable (Full Featured)"
         cable_note = "Supports high-speed data, Alt-Mode (video/display output), and advanced features."
         if (lane1_complete and not lane2_complete) or (lane2_complete and not lane1_complete):
             orientation_note = "Works in one orientation only"
-    elif full_ss and usb2 and cc_present:
+    elif full_usb_c_candidate and full_ss and usb2 and cc_present:
         # Full SuperSpeed with USB 2.0 (regardless of Alt-Mode)
         cable_type = "USB 3.x Fast Data Cable"
         cable_note = "Supports high-speed data transfer. Good for modern devices."
         if (lane1_complete and not lane2_complete) or (lane2_complete and not lane1_complete):
             orientation_note = "Works in one orientation only"
-    elif usb2 and single_lane_ss:
+    elif usb2 and single_lane_ss and not usb_c_both:
         cable_type = "USB 3.x Data Cable (Single-Lane)"
         if legacy_usb3_candidate:
             cable_note = "Single SuperSpeed lane detected (legacy USB 3.0 connectors)."
@@ -204,7 +229,7 @@ def analyze_cable(
         # USB 2.0 data only, no SuperSpeed pins
         cable_type = "USB 2.0 Data Cable"
         if legacy_usb2_candidate:
-            cable_note = "Legacy USB 2.0 wiring detected (USB-A/B/Micro/Mini/Lightning)."
+            cable_note = "USB 2.0 D+/D- wiring detected."
         else:
             cable_note = "Good for basic data transfer, charging, and older devices."
     elif power and not usb2 and ss_count == 0:
@@ -218,7 +243,7 @@ def analyze_cable(
         # USB 2.0 with incomplete SuperSpeed (damaged pins)
         cable_type = "NON-STANDARD Cable"
         cable_note = "Has incomplete or damaged SuperSpeed connections. May work but not recommended."
-        if (lane1_complete and not lane2_complete) or (lane2_complete and not lane1_complete):
+        if single_lane_ss and not usb_c_both:
             orientation_note = "Works in one orientation only"
     else:
         cable_type = "Unknown Cable"
@@ -234,8 +259,8 @@ def analyze_cable(
     # === TECHNICAL DETAILS ===
     report.append(f"\nCapabilities:")
     report.append(f"  • USB 2.0 data: {'Yes' if usb2 else ('Partial' if usb2_partial else 'No')}")
-    report.append(f"  • Power delivery: {'Yes' if power else ('Partial' if power_partial else 'No')}")
-    report.append(f"  • SuperSpeed (USB 3.x): {'Yes' if full_ss else ('Partial' if partial_ss else 'No')} (expected {expected_ss_pins}/8 pins)")
+    report.append(f"  • Power delivery: {'Yes' if power else ('Partial' if power_partial else 'No')} (detected {vbus_count}/{expected_vbus_count} VBUS, {gnd_count}/{expected_gnd_count} GND)")
+    report.append(f"  • SuperSpeed (USB 3.x): {'Yes' if ss_ok_for_selection else ('Partial' if partial_ss else 'No')} (detected {ss_count}/8 pins; expected {expected_ss_pins})")
     report.append(f"  • Alt-Mode wiring (SBU): {'Yes' if sbu_count == 2 else ('Partial' if sbu_count == 1 else 'No')} (not a guarantee of Alt-Mode)"
     )
     
@@ -264,6 +289,10 @@ def analyze_cable(
         report.append(f"\nWiring Warnings:")
         for warning in wiring_warnings:
             report.append(f"  • {warning}")
+
+    if lightning_selected:
+        report.append(f"\nConnector Notes:")
+        report.append("  • Lightning is proprietary; this tool only checks exposed USB 2.0-style continuity.")
     
     report.append(f"\nConfiguration:")
     report.append(f"  • CC (Config Channel): {'Yes' if cc_count == 2 else ('Partial' if cc_count == 1 else 'No')}")
