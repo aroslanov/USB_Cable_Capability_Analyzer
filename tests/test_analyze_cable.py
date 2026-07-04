@@ -62,6 +62,20 @@ class AnalyzeCableStandardInterpretationTests(unittest.TestCase):
         self.assertIn("NON-STANDARD Cable", report)
         self.assertNotIn("Works in one orientation only", report)
 
+    def test_usb2_usb_c_to_usb_c_without_detected_cc_is_warning_not_damage(self):
+        active = {"D+", "D-", "VBUS", "GND"}
+        report = analyze_cable(
+            active,
+            counts("VBUS", "VBUS", "VBUS", "VBUS", "GND", "GND", "GND", "GND"),
+            "Type C 3.0",
+            "Type C 3.0",
+        )
+
+        self.assertIn("USB 2.0 Data Cable", report)
+        self.assertNotIn("DAMAGED CABLE", report)
+        self.assertNotIn("Broken Differential Pairs", report)
+        self.assertIn("CC continuity missing", report)
+
     def test_usb_c_to_legacy_usb3_does_not_require_cc_continuity(self):
         active = {"TX1+", "TX1-", "RX1+", "RX1-", "D+", "D-", "VBUS", "GND"}
         report = analyze_cable(

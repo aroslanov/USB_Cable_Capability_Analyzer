@@ -182,11 +182,7 @@ def analyze_cable(
         broken_pairs.append("Power wiring incomplete (VBUS/GND)")
 
     if usb_c_both and cc_count == 0:
-        # If this is a charge-only cable (no data, no SuperSpeed), flag as warning instead of damage.
-        if power and not usb2 and ss_count == 0:
-            wiring_warnings.append("CC continuity missing (USB-C to USB-C selected)")
-        else:
-            broken_pairs.append("CC continuity missing (USB-C to USB-C selected)")
+        wiring_warnings.append("CC continuity missing (USB-C to USB-C selected)")
     elif full_usb_c_candidate and cc_count == 1:
         wiring_warnings.append("CC continuity incomplete (USB-C to USB-C)")
     elif usb_c_any and not usb_c_both and cc_count == 0:
