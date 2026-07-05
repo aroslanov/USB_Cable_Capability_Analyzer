@@ -10,3 +10,4 @@ logs/
 dist/
 build/
 *.spec
+build.bat

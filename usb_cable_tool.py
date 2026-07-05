@@ -38,6 +38,7 @@ RX_PAIRS = {
 USB2_PINS = {"D+", "D-"}
 CC_PINS = {"CC1", "CC2"}
 SBU_PINS = {"SBU1", "SBU2"}
+EXTRA_DIAGNOSTIC_PINS = {"ID", "Shield"}
 
 PIN_TOOLTIPS = {
     "GND": "Ground pin for power and signal return",
@@ -56,6 +57,8 @@ PIN_TOOLTIPS = {
     "CC1": "Configuration Channel 1 for cable detection and power negotiation",
     "TX1-": "Transmit negative for USB 3.x SuperSpeed lane 1",
     "TX1+": "Transmit positive for USB 3.x SuperSpeed lane 1",
+    "ID": "USB OTG ID pin used by Mini/Micro USB OTG connectors; not used by USB-C",
+    "Shield": "Connector shell or cable shield continuity; informational, not a data capability",
 }
 
 
@@ -140,6 +143,12 @@ def analyze_cable(
     usb3_any = left_is_usb3 or right_is_usb3
     usb2_only = not usb3_any
     lightning_selected = "Lightning" in left_connector or "Lightning" in right_connector
+    id_present = "ID" in active_pins
+    shield_present = "Shield" in active_pins
+    otg_id_relevant = any(
+        connector_name in left_connector or connector_name in right_connector
+        for connector_name in ("Micro B", "Mini B")
+    )
 
     legacy_usb2_candidate = usb2 and usb2_only and not usb_c_any
     legacy_usb3_candidate = usb2 and usb3_any and not usb_c_any
@@ -187,6 +196,9 @@ def analyze_cable(
         wiring_warnings.append("CC continuity incomplete (USB-C to USB-C)")
     elif usb_c_any and not usb_c_both and cc_count == 0:
         wiring_warnings.append("Type-C CC termination/e-marker is not verified by this continuity test")
+
+    if id_present and not otg_id_relevant:
+        wiring_warnings.append("ID/OTG detected on a connector type where ID is not expected")
     
     # === USER-FRIENDLY CLASSIFICATION ===
     # Classification is based strictly on AVAILABLE PINS, not assumptions
@@ -293,6 +305,13 @@ def analyze_cable(
     report.append(f"\nConfiguration:")
     report.append(f"  • CC (Config Channel): {'Yes' if cc_count == 2 else ('Partial' if cc_count == 1 else 'No')}")
     report.append(f"  • SBU (Sideband): {sbu_count}/2 lines")
+
+    report.append(f"\nExtra Diagnostics:")
+    if otg_id_relevant:
+        report.append(f"  • ID/OTG: {'present (possible OTG/host-mode adapter behavior)' if id_present else 'not present (normal device-cable behavior)'}")
+    else:
+        report.append(f"  • ID/OTG: {'present (unexpected for selected connector types)' if id_present else 'not present / not applicable'}")
+    report.append(f"  • Shield continuity: {'present' if shield_present else 'absent / unknown'}")
         
     if left_connector or right_connector:
             report.append(f"\nSelected connectors: {left_connector or 'Unknown'} ↔ {right_connector or 'Unknown'}")
@@ -407,8 +426,19 @@ class USBCableChecker(tk.Tk):
             self.vars[f"{pin}_{i+20}"] = var
             Tooltip(checkbutton, PIN_TOOLTIPS[pin])
 
+        extras = ttk.LabelFrame(main, text="Extra Diagnostics")
+        extras.grid(row=1, column=0, columnspan=2, pady=(10, 0), sticky="w")
+
+        for i, pin in enumerate(["ID", "Shield"]):
+            var = tk.BooleanVar()
+            var.trace_add("write", lambda *_: self._update_report())
+            checkbutton = ttk.Checkbutton(extras, text=pin, variable=var)
+            checkbutton.pack(side="left", padx=(0 if i == 0 else 10, 0))
+            self.vars[f"{pin}_{i+40}"] = var
+            Tooltip(checkbutton, PIN_TOOLTIPS[pin])
+
         controls = ttk.Frame(main)
-        controls.grid(row=1, column=0, columnspan=4, pady=(10, 0), sticky="ew")
+        controls.grid(row=2, column=0, columnspan=4, pady=(10, 0), sticky="ew")
 
         button_frame = ttk.Frame(controls)
         button_frame.pack(expand=True, anchor="center")
@@ -418,8 +448,8 @@ class USBCableChecker(tk.Tk):
         ttk.Button(button_frame, text="Copy to Clipboard", command=self._copy_to_clipboard).pack(side="left", padx=(8, 0))
 
         report_frame = ttk.LabelFrame(main, text="Live Analysis")
-        report_frame.grid(row=2, column=0, columnspan=4, sticky="nsew", padx=10, pady=(15, 0))
-        main.grid_rowconfigure(2, weight=1)
+        report_frame.grid(row=3, column=0, columnspan=4, sticky="nsew", padx=10, pady=(15, 0))
+        main.grid_rowconfigure(3, weight=1)
 
         # Create scrollbar for report text
         scrollbar = ttk.Scrollbar(report_frame)
@@ -494,6 +524,8 @@ class USBCableChecker(tk.Tk):
                     logical_name = right_side_translation.get(pin_label, pin_label)
                     active_pins.add(logical_name)
                     pin_counts[logical_name] = pin_counts.get(logical_name, 0) + 1
+                    if pin_label in EXTRA_DIAGNOSTIC_PINS:
+                        continue
                     right_pins_checked.add(f"{pin_index - 19:02d} {pin_label}")
                 else:
                     # Left Side pins (0-11) match standard layout; no change needed

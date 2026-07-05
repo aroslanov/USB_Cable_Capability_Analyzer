@@ -19,8 +19,9 @@ This tool mimics the Treedix C-TRX5-0575 / Occkic MRB063A / Noname USB Cable Tes
 - **Broken Pair Detection**: Explicitly identifies incomplete differential pairs (e.g., TX1+ without TX1-) and reports them as potential cable damage.
 - **Incomplete Power Wiring Detection**: Detects missing VBUS or GND connections and reports them as damage.
 - **Type-C Aware Continuity Rules**: Treats USB-C to USB-C CC continuity differently from USB-C to legacy cables, where CC termination/e-marker behavior is not verified by this continuity board.
+- **Extra Diagnostics**: Reports optional ID/OTG and Shield/Shell continuity separately from core cable capability classification.
 - **Mismatch Detection**: Flags inconsistencies between selected connector types and detected SuperSpeed wiring.
-- **Wiring Warnings**: Distinguishes between critical broken pairs (damage) and non-critical advisories (e.g., missing CC on a charge-only USB-C cable).
+- **Wiring Warnings**: Distinguishes between critical broken pairs (damage) and non-critical advisories (e.g., missing CC on USB-C continuity checks or unexpected ID/OTG continuity).
 - **Lane-Level Reporting**: Independent status for each SuperSpeed lane (Lane 1 & Lane 2) with specific pin counts.
 - **Detailed Diagnostics**:
   - Complete lane status (OK / INCOMPLETE / MISSING)
@@ -106,6 +107,7 @@ Notes:
 - Launch the GUI.
 - Select the connector types for the **Left** and **Right** ends of the cable using the radio button panels.
 - Check the boxes corresponding to the pins that are active (LEDs ON) on your USB Cable Tester board.
+- Use the **Extra Diagnostics** checkboxes for optional ID/OTG and Shield/Shell continuity indicators when present on the tester.
 - The analysis updates in real-time below the checkboxes.
 - Use "Select All" to check all pins, "Unselect All" to clear them.
 - Click "Copy to Clipboard" to copy the full report.
@@ -144,10 +146,17 @@ The tool detects incomplete SuperSpeed TX/RX differential pairs, broken USB 2.0 
 
 ### Wiring Warnings
 Non-critical issues are reported as warnings rather than damage:
-- Missing CC wiring on a charge-only USB-C cable (no data, no SuperSpeed)
+- Missing CC continuity on a USB-C to USB-C cable
 - Incomplete CC continuity on a USB-C to USB-C cable
 - USB-C to legacy cables where CC termination/e-marker behavior cannot be verified by continuity alone
+- ID/OTG continuity on connector types where an ID pin is not expected
 - Lightning is proprietary; the tool only checks exposed USB 2.0-style continuity
+
+### Extra Diagnostics
+ID/OTG and Shield/Shell are reported as secondary diagnostics. They do not determine USB speed, charging capability, or the main cable classification.
+
+- **ID/OTG**: Relevant only for Mini/Micro USB OTG-style connectors. ID absent is normal for regular Mini-B/Micro-B device cables; ID present can indicate OTG or host-mode adapter behavior. USB-C does not use ID, so ID on a USB-C selection is reported as an unexpected warning.
+- **Shield/Shell**: Reports connector shell or cable shield continuity as present or absent/unknown. Missing shield continuity can reduce EMI/noise protection, but does not by itself make the cable unusable or damaged.
 
 ### Lane-Level Reporting
 Each SuperSpeed lane is analyzed independently:
@@ -183,8 +192,9 @@ Tests cover:
 - USB 2.0 legacy (Type A to Micro B)
 - USB 3.0 legacy single-lane (Type A 3.0 to Type B 3.0)
 - Full-featured USB-C (both ends)
-- Missing CC on USB-C (detected as damaged)
+- Missing CC on USB-C (reported as a wiring warning)
 - USB-C to Type B (single-lane, with CC continuity not required)
+- ID/OTG and Shield/Shell as secondary diagnostics
 - Legacy USB 3.0 mixed TX/RX pair labeling from Type-C rows
 - Lightning as proprietary USB 2.0-style continuity
 - Charge-only legacy cable

@@ -76,6 +76,46 @@ class AnalyzeCableStandardInterpretationTests(unittest.TestCase):
         self.assertNotIn("Broken Differential Pairs", report)
         self.assertIn("CC continuity missing", report)
 
+    def test_shield_is_reported_without_affecting_usb2_classification(self):
+        active = {"D+", "D-", "VBUS", "GND", "Shield"}
+        report = analyze_cable(
+            active,
+            counts("VBUS", "GND"),
+            "Type A 2.0",
+            "Micro B 2.0",
+        )
+
+        self.assertIn("USB 2.0 Data Cable", report)
+        self.assertNotIn("DAMAGED CABLE", report)
+        self.assertIn("Shield continuity: present", report)
+
+    def test_id_on_micro_or_mini_is_otg_diagnostic_not_damage(self):
+        active = {"D+", "D-", "VBUS", "GND", "ID"}
+        report = analyze_cable(
+            active,
+            counts("VBUS", "GND"),
+            "Type A 2.0",
+            "Micro B 2.0",
+        )
+
+        self.assertIn("USB 2.0 Data Cable", report)
+        self.assertNotIn("DAMAGED CABLE", report)
+        self.assertIn("ID/OTG: present (possible OTG/host-mode adapter behavior)", report)
+
+    def test_id_on_usb_c_is_unexpected_warning_not_damage(self):
+        active = {"D+", "D-", "VBUS", "GND", "ID"}
+        report = analyze_cable(
+            active,
+            counts("VBUS", "VBUS", "VBUS", "VBUS", "GND", "GND", "GND", "GND"),
+            "Type C 3.0",
+            "Type C 3.0",
+        )
+
+        self.assertIn("USB 2.0 Data Cable", report)
+        self.assertNotIn("DAMAGED CABLE", report)
+        self.assertIn("ID/OTG detected on a connector type where ID is not expected", report)
+        self.assertIn("ID/OTG: present (unexpected for selected connector types)", report)
+
     def test_usb_c_to_legacy_usb3_does_not_require_cc_continuity(self):
         active = {"TX1+", "TX1-", "RX1+", "RX1-", "D+", "D-", "VBUS", "GND"}
         report = analyze_cable(
